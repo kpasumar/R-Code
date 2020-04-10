@@ -4,7 +4,9 @@ author: "Krishna Prem Pasumarthy & Islam Amin"
 date: "`r format(Sys.Date(), format = '%B %d, %Y')`"
 output:
   pdf_document:
-    number_sections: true
+    number_sections: yes
+  html_document:
+    df_print: paged
 ---
 
 \section{Summary}
@@ -14,10 +16,29 @@ output:
 
 \section{Descriptive Statistics}
 
+First, take a look at summary statistics of the \texttt{fhsd} dataset.
+
+```{r echo=FALSE}
+fhsd <- read.csv('fhs.csv')
+
+# summary statistics on explanatory variables
+summary(fhsd)
+```
+
+Then take a look at \texttt{chdrisk} grouped by \texttt{sex} as well as \texttt{chdrisk} grouped by \texttt{cursmoke}.
+
+```{r,echo=FALSE}
+library(kableExtra)
+by(fhsd$chdrisk, fhsd$sex, summary)
+by(fhsd$chdrisk, fhsd$cursmoke, summary)
+```
+
+
+Now take a look at pair plots of all numeric explanatory variates i.e. variates excluding response variate \texttt{chdrisk} and logical variates such as \texttt{cursmoke}. 
 
 ```{r echo=FALSE}
 
-fhsd <- read.csv('fhs.csv')
+
 
 # pairs(~ totchol + ldlc, data = fhsd)
 # pairs(~ diabp + totchol, data = fhsd)
@@ -33,15 +54,7 @@ pairs(~ totchol + age + sysbp + diabp + cigpday + bmi +
 From the pair plots, we can observe a strong correlation between low density lipoprotein cholesterol and serum total cholestrol. This correlation could be explained by the fact that there could be a relationship between
 the amount 
 
-```{r echo=FALSE}
-# summary statistics on explanatory variables
-summary(fhsd)
-
-by(fhsd$chdrisk, fhsd$sex, summary)
-by(fhsd$chdrisk, fhsd$cursmoke, summary)
-```
-
-
+Now take a look at the VIFs of these variates.
 
 ```{r echo=FALSE}
 # design matrix excluding intercept
