@@ -11,10 +11,6 @@ output:
 
 
 
-Test
-
-
-
 
 \section{Descriptive Statistics}
 
