@@ -1,0 +1,73 @@
+---
+title: "STAT 331 Final Project"
+author: "Krishna Prem Pasumarthy & Islam Amin"
+date: "`r format(Sys.Date(), format = '%B %d, %Y')`"
+output:
+  pdf_document:
+    number_sections: true
+---
+
+\section{Summary}
+
+
+
+Test
+
+
+
+
+\section{Descriptive Statistics}
+
+
+```{r echo=FALSE}
+
+fhsd <- read.csv('fhs.csv')
+
+# pairs(~ totchol + ldlc, data = fhsd)
+# pairs(~ diabp + totchol, data = fhsd)
+# pair plots for continuous variables
+pairs(~ totchol + age + sysbp + diabp + cigpday + bmi + 
+        heartrte + glucose + hdlc + ldlc, 
+      col = "blue",                                         # Change color
+      pch = 18,                                            # Change shape of points
+      main = "Pair Plots of Continuous Variables",
+      data = fhsd)
+```
+
+From the pair plots, we can observe a strong correlation between low density lipoprotein cholesterol and serum total cholestrol. This correlation could be explained by the fact that there could be a relationship between
+the amount 
+
+```{r echo=FALSE}
+# summary statistics on explanatory variables
+summary(fhsd)
+
+by(fhsd$chdrisk, fhsd$sex, summary)
+by(fhsd$chdrisk, fhsd$cursmoke, summary)
+```
+
+
+
+```{r echo=FALSE}
+# design matrix excluding intercept
+X <- model.matrix(lm(chdrisk ~ . -  1, data = fhsd))
+# remove linearly dependent column (sexMale = 1 - sexFemale)
+X <- X[,-1]
+# calculate vif
+vif <- diag(solve(cor(X)))
+
+vif
+```
+
+\section{Candidate Models}
+
+
+\section{Model Diagnostics}
+
+
+\section{Model Selection}
+
+
+\section{Discussion}
+
+
+
