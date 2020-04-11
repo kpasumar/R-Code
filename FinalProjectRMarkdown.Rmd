@@ -127,9 +127,9 @@ if(!load_calcs){
   
   #backward model selection
   system.time({
-    Mback <- step(object = M0,
+    Mback <- step(object = Mmax,
                   scope = list(lower = M0, upper = Mmax),
-                  direction = "forward", trace = FALSE)
+                  direction = "backward", trace = FALSE)
   })
   
   #stepwise model selection
@@ -163,6 +163,14 @@ Mfwd$call
 
 # Backward model selection
 Mback$call
+
+beta.fwd = coef(Mfwd)
+beta.back = coef(Mback)
+beta.step = coef(Mstep)
+
+identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.back)], names(beta.fwd))
+identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.step)], names(beta.fwd))
+identical(names(beta.back)[names(beta.back) %in% names(beta.step)], names(beta.back))
 ```
 
 
