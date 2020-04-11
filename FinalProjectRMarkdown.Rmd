@@ -17,6 +17,9 @@ output:
 
 ```{r echo=FALSE}
 
+library(knitr)
+library(kableExtra)
+
 fhsd <- read.csv('fhs.csv')
 
 # pairs(~ totchol + ldlc, data = fhsd)
@@ -26,6 +29,8 @@ pairs(~ totchol + age + sysbp + diabp + cigpday + bmi +
         heartrte + glucose + hdlc + ldlc, 
       col = "blue",                                         # Change color
       pch = 18,                                            # Change shape of points
+      cex = 0.4,
+      gap = 1,
       main = "Pair Plots of Continuous Variables",
       data = fhsd)
 ```
@@ -35,7 +40,8 @@ the amount
 
 ```{r echo=FALSE}
 # summary statistics on explanatory variables
-summary(fhsd)
+kable(summary(fhsd), "latex", caption = "Summary Statistics", booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
 
 by(fhsd$chdrisk, fhsd$sex, summary)
 by(fhsd$chdrisk, fhsd$cursmoke, summary)
@@ -55,6 +61,63 @@ vif
 ```
 
 \section{Candidate Models}
+
+
+```{r echo=FALSE}
+# model with only intercept
+M0 <- lm(chdrisk ~ 1, data = fhsd)
+Mmax <- lm(chdrisk ~ (.)^2, data = fhsd)
+# starting model for stepwise selection
+Mstart <- lm(chdrisk ~ ., data = fhsd) 
+
+# find model coefficients which are NA
+beta.max <- coef(Mmax)
+names(beta.max)[is.na(beta.max)]
+
+# number of respondents in minor and lang covariates
+kable(table(fhsd[c("cursmoke", "cigpday")]), "latex")
+kable(table(fhsd[c("bpmeds", "prevhyp")]), "latex")
+
+
+Mmax <- lm(chdrisk ~ (.)^2 - cursmoke:cigpday - bpmeds:prevhyp + 
+             I(totchol ^ 2) + I(sysbp ^ 2) + I(diabp ^ 2) 
+           + I(bmi ^ 2) + I(glucose ^ 2)
+           + I(hdlc ^ 2) + I(ldlc ^ 2), data = fhsd)
+
+anyNA(coef(Mmax)) # check if there are any remaining NAs
+
+
+#forward model selection
+system.time({
+  Mfwd <- step(object = M0,
+                scope = list(lower = M0, upper = Mmax),
+                direction = "forward", trace = FALSE)
+})
+
+#backward model selection
+system.time({
+  Mback <- step(object = M0,
+                scope = list(lower = M0, upper = Mmax),
+                direction = "forward", trace = FALSE)
+})
+
+#stepwise model selection
+system.time({
+  Mstep <- step(object = Mstart,
+                scope = list(lower = M0, upper = Mmax),
+                direction = "both", trace = FALSE)
+})
+
+# Stepwise model selection
+Mstep$call
+
+# Forward model selection
+Mfwd$call
+
+# Backward model selection
+Mback$call
+
+```
 
 
 \section{Model Diagnostics}
