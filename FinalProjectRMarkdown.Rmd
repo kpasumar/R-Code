@@ -59,7 +59,7 @@ pairs(~ totchol + age + sysbp + diabp + cigpday + bmi +
       pch = 18,                                            # Change shape of points
       cex = 0.4,
       gap = 1,
-      main = "Pair Plots of Continuous Variables",
+      main = "Pair Plots of Continuous Variates",
       data = fhsd)
 ```
 
@@ -70,8 +70,10 @@ Now take a look at the VIFs of these variates.
 
 
 ```{r echo=FALSE}
+library(gtools)
+
 # design matrix excluding intercept
-X <- model.matrix(lm(chdrisk ~ . -  1, data = fhsd))
+X <- model.matrix(lm(logit(chdrisk) ~ . -  1, data = fhsd))
 # remove linearly dependent column (sexMale = 1 - sexFemale)
 X <- X[,-1]
 # calculate vif
@@ -89,12 +91,12 @@ vif
 
 \subsection{Automated Model Selection}
 
-```{r echo=TRUE}
+```{r echo=TRUE,cache=TRUE}
 # model with only intercept
-M0 <- lm(chdrisk ~ 1, data = fhsd)
-Mmax <- lm(chdrisk ~ (.)^2, data = fhsd)
+M0 <- lm(logit(chdrisk) ~ 1, data = fhsd)
+Mmax <- lm(logit(chdrisk) ~ (.)^2, data = fhsd)
 # starting model for stepwise selection
-Mstart <- lm(chdrisk ~ ., data = fhsd) 
+Mstart <- lm(logit(chdrisk) ~ ., data = fhsd) 
 
 # find model coefficients which are NA
 beta.max <- coef(Mmax)
@@ -105,7 +107,7 @@ kable(table(fhsd[c("cursmoke", "cigpday")]), "latex")
 kable(table(fhsd[c("bpmeds", "prevhyp")]), "latex")
 
 # remove the coeffs with the problem and add quadratic terms for the continuous variables
-Mmax <- lm(chdrisk ~ (.)^2 - cursmoke:cigpday - bpmeds:prevhyp + 
+Mmax <- lm(logit(chdrisk) ~ (.)^2 - cursmoke:cigpday - bpmeds:prevhyp + 
              I(totchol ^ 2) + I(sysbp ^ 2) + I(diabp ^ 2) 
            + I(bmi ^ 2) + I(glucose ^ 2)
            + I(hdlc ^ 2) + I(ldlc ^ 2), data = fhsd)
