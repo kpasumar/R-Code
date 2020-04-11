@@ -89,7 +89,8 @@ vif
 
 \subsection{Automated Model Selection}
 
-```{r echo=TRUE}
+```{r}
+load_calcs = TRUE
 # model with only intercept
 M0 <- lm(chdrisk ~ 1, data = fhsd)
 Mmax <- lm(chdrisk ~ (.)^2, data = fhsd)
@@ -112,27 +113,45 @@ Mmax <- lm(chdrisk ~ (.)^2 - cursmoke:cigpday - bpmeds:prevhyp +
 
 anyNA(coef(Mmax)) # check if there are any remaining NAs
 
+if(!load_calcs){
 
-#forward model selection
-system.time({
-  Mfwd <- step(object = M0,
-                scope = list(lower = M0, upper = Mmax),
-                direction = "forward", trace = FALSE)
-})
+  #forward model selection
+  system.time({
+    Mfwd <- step(object = M0,
+                  scope = list(lower = M0, upper = Mmax),
+                  direction = "forward", trace = FALSE)
+  })
+  
+  #backward model selection
+  system.time({
+    Mback <- step(object = M0,
+                  scope = list(lower = M0, upper = Mmax),
+                  direction = "forward", trace = FALSE)
+  })
+  
+  #stepwise model selection
+  system.time({
+    Mstep <- step(object = Mstart,
+                  scope = list(lower = M0, upper = Mmax),
+                  direction = "both", trace = FALSE)
+  })
 
-#backward model selection
-system.time({
-  Mback <- step(object = M0,
-                scope = list(lower = M0, upper = Mmax),
-                direction = "forward", trace = FALSE)
-})
+}
 
-#stepwise model selection
-system.time({
-  Mstep <- step(object = Mstart,
-                scope = list(lower = M0, upper = Mmax),
-                direction = "both", trace = FALSE)
-})
+
+# the caching/loading block
+# include = FALSE means it gets run but not displayed
+if(!load_calcs) {
+  saveRDS(list(Mfwd = Mfwd, Mback = Mback, Mstep = Mstep), file = "models_automated.rds") 
+} else {
+  # just load the calculations
+  tmp <- readRDS("models_automated.rds")
+  Mfwd <- tmp$Mfwd
+  Mback <- tmp$Mback
+  Mstep <- tmp$Mstep
+  rm(tmp) # optionally remove tmp from workspace
+}
+
 
 # Stepwise model selection
 Mstep$call
@@ -142,7 +161,6 @@ Mfwd$call
 
 # Backward model selection
 Mback$call
-
 ```
 
 
