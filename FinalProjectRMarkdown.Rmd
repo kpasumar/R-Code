@@ -36,7 +36,14 @@ Then take a look at \texttt{chdrisk} grouped by \texttt{sex} as well as \texttt{
 ```{r,echo=FALSE}
 
 by(fhsd$chdrisk, fhsd$sex, summary)
+
 by(fhsd$chdrisk, fhsd$cursmoke, summary)
+
+by(fhsd$chdrisk, fhsd$prevstrk, summary)
+
+by(fhsd$chdrisk, fhsd$prevhyp, summary)
+
+by(fhsd$chdrisk, fhsd$prevmi, summary)
 ```
 
 
@@ -50,10 +57,10 @@ Now take a look at pair plots of all numeric explanatory variates i.e. variates 
 
 
 
-# pairs(~ totchol + ldlc, data = fhsd)
-# pairs(~ diabp + totchol, data = fhsd)
+pairs(~ chdrisk + prevmi, data = fhsd)
+hist(fhsd$chdrisk)
 # pair plots for continuous variables
-pairs(~ totchol + age + sysbp + diabp + cigpday + bmi + 
+pairs(~ chdrisk + totchol + age + sysbp + diabp + cigpday + bmi + 
         heartrte + glucose + hdlc + ldlc, 
       col = "blue",                                         # Change color
       pch = 18,                                            # Change shape of points
