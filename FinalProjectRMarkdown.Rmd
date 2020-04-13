@@ -20,12 +20,18 @@ First, take a look at summary statistics of the \texttt{fhsd} dataset.
 
 ```{r echo=FALSE}
 library(knitr)
-suppressWarnings(library(kableExtra)) 
+suppressWarnings(library(kableExtra))
+
+# Hide NA values from summary statistics which appear for categorical variates
+options(knitr.kable.NA = '') 
 
 fhsd <- read.csv('fhs.csv')
 
-# summary statistics on explanatory variables
-kable(summary(fhsd), "latex", caption = "Summary Statistics", booktabs = T) %>%
+# summary statistics on explanatory variables broken into two small tables
+kable(summary(fhsd[,1:9]), "latex", caption = "Summary Statistics", booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+
+kable(summary(fhsd[,10:18]), "latex", booktabs = T) %>%
 kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
 ```
 
