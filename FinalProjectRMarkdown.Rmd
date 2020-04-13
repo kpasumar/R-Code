@@ -22,7 +22,7 @@ First, take a look at summary statistics of the \texttt{fhsd} dataset.
 
 
 library(knitr)
-suppressWarnings(library(kableExtra))
+suppressWarnings(library(kableExtra)) 
 
 fhsd <- read.csv('fhs.csv')
 
@@ -183,7 +183,30 @@ identical(names(beta.back)[names(beta.back) %in% names(beta.step)], names(beta.b
 
 \subsection{Manual Model Selection}
 
+```{r}
+library(stringr) # For string operations
 
+ table <- c() # Initialize empty vector
+
+ names.table <- names(beta.step)                  # Obtain variate names in stepwise model 
+ names.table <- str_remove_all(names.table,"Yes") # Remove "Yes" from interactions
+ names.table <- str_remove_all(names.table,"Male") # Remove "Male"
+
+ # Perform F-tests by removing one variate at a time 
+  for(i in names.table){
+    # Obtain model without variate i
+    mdl <- lm(as.formula(paste0("update(Mstep, . ~ . -", i,")")),data = fhsd)
+   test <- anova(Mstep,mdl)               # F-Test between Stepwise and reduced model
+   table <- cbind(table,test$`Pr(>F)`[2]) # Add corresponding p-value to the table
+  }
+ table <- as.data.frame(table)
+ colnames(table) <- names.table # Add appropriate column names to the table
+
+sort(table,decreasing = TRUE)   # Look at the variates that show least significance
+
+# Remove first three variates from table since starting the 4th variate, reduction becomes significant
+anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - bpmeds:prevstrk - bpmeds:glucose)) 
+```
 
 \section{Model Diagnostics}
 
