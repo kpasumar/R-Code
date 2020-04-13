@@ -19,8 +19,6 @@ output:
 First, take a look at summary statistics of the \texttt{fhsd} dataset.
 
 ```{r echo=FALSE}
-
-
 library(knitr)
 suppressWarnings(library(kableExtra)) 
 
@@ -46,13 +44,9 @@ by(fhsd$chdrisk, fhsd$cursmoke, summary)
 
 Now take a look at pair plots of all numeric explanatory variates i.e. variates excluding response variate \texttt{chdrisk} and logical variates such as \texttt{cursmoke}. 
 
-```{r echo=FALSE}
 
-
-
-# pairs(~ totchol + ldlc, data = fhsd)
-# pairs(~ diabp + totchol, data = fhsd)
-# pair plots for continuous variables
+```{r echo=FALSE,fig.width= 8,fig.height=8.5}
+# pair plots for continuous variates
 pairs(~ totchol + age + sysbp + diabp + cigpday + bmi + 
         heartrte + glucose + hdlc + ldlc, 
       col = "blue",                                         # Change color
@@ -198,11 +192,19 @@ library(stringr) # For string operations
 sort(table,decreasing = TRUE)   # Look at the variates that show least significance
 
 # Remove first three variates from table since starting the 4th variate, reduction becomes significant
-anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - bpmeds:prevstrk - bpmeds:glucose)) 
+anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - bpmeds:prevstrk - bpmeds:glucose - sex:ldlc -age:prevmi)) 
 ```
 
 \section{Model Diagnostics}
 
+\subsection{Leverage and Influence Measures}
+
+```{r}
+# hatvalues(Mstep) # Leverages of stepwise model
+# 
+# cooks.distance(Mstep)
+
+```
 
 \section{Model Selection}
 
