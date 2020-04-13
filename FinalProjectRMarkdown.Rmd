@@ -19,15 +19,19 @@ output:
 First, take a look at summary statistics of the \texttt{fhsd} dataset.
 
 ```{r echo=FALSE}
-
-
 library(knitr)
-suppressWarnings(library(kableExtra)) 
+suppressWarnings(library(kableExtra))
+
+# Hide NA values from summary statistics which appear for categorical variates
+options(knitr.kable.NA = '') 
 
 fhsd <- read.csv('fhs.csv')
 
-# summary statistics on explanatory variables
-kable(summary(fhsd), "latex", caption = "Summary Statistics", booktabs = T) %>%
+# summary statistics on explanatory variables broken into two small tables
+kable(summary(fhsd[,1:9]), "latex", caption = "Summary Statistics", booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+
+kable(summary(fhsd[,10:18]), "latex", booktabs = T) %>%
 kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
 ```
 
@@ -53,14 +57,17 @@ by(fhsd$chdrisk, fhsd$prevmi, summary)
 
 Now take a look at pair plots of all numeric explanatory variates i.e. variates excluding response variate \texttt{chdrisk} and logical variates such as \texttt{cursmoke}. 
 
-```{r echo=FALSE}
 
-
-
+<<<<<<< HEAD
 pairs(~ chdrisk + prevmi, data = fhsd)
 hist(fhsd$chdrisk)
 # pair plots for continuous variables
 pairs(~ chdrisk + totchol + age + sysbp + diabp + cigpday + bmi + 
+=======
+```{r echo=FALSE,fig.width= 8,fig.height=8.5}
+# pair plots for continuous variates
+pairs(~ totchol + age + sysbp + diabp + cigpday + bmi + 
+>>>>>>> 177022ddc0597ba63f524c753be20a3325c1d1a9
         heartrte + glucose + hdlc + ldlc, 
       col = "blue",                                         # Change color
       pch = 18,                                            # Change shape of points
@@ -192,7 +199,7 @@ library(stringr) # For string operations
  names.table <- str_remove_all(names.table,"Yes") # Remove "Yes" from interactions
  names.table <- str_remove_all(names.table,"Male") # Remove "Male"
 
- # Perform F-tests by removing one variate at a time 
+ # Perform F-tests with Mstep by removing one variate at a time 
   for(i in names.table){
     # Obtain model without variate i
     mdl <- lm(as.formula(paste0("update(Mstep, . ~ . -", i,")")),data = fhsd)
@@ -200,16 +207,33 @@ library(stringr) # For string operations
    table <- cbind(table,test$`Pr(>F)`[2]) # Add corresponding p-value to the table
   }
  table <- as.data.frame(table)
- colnames(table) <- names.table # Add appropriate column names to the table
+ colnames(table) <- names.table            # Add appropriate column names to the table
 
-sort(table,decreasing = TRUE)   # Look at the variates that show least significance
+sort(table,decreasing = TRUE)              # Arrange variates by decreasing significance
 
-# Remove first three variates from table since starting the 4th variate, reduction becomes significant
-anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - bpmeds:prevstrk - bpmeds:glucose)) 
+# Remove as many insignificant continuous variate interactions as possible
+anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday))
+
+#anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday -age:heartrte))
+
+# Now remove less insignificant interactions
+anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:heartrte 
+                    - bpmeds:prevstrk))
+
+Mdl_manual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:heartrte 
+                    - bpmeds:prevstrk)     # Denotes manually constructed model
 ```
 
 \section{Model Diagnostics}
 
+\subsection{Leverage and Influence Measures}
+
+```{r}
+# hatvalues(Mstep) # Leverages of stepwise model
+# 
+# cooks.distance(Mstep)
+
+```
 
 \section{Model Selection}
 
