@@ -43,8 +43,6 @@ by(fhsd$chdrisk, fhsd$cursmoke, summary)
 
 [ADD SOME COMMENTS HERE REGARDING SUMMARY]
 
-\newpage
-
 Now take a look at pair plots of all numeric explanatory variates i.e. variates excluding response variate \texttt{chdrisk} and logical variates such as \texttt{cursmoke}. 
 
 
@@ -86,7 +84,7 @@ vif
 \subsection{Automated Model Selection}
 
 ```{r}
-library(gtools)
+suppressWarnings(library(gtools))
 load_calcs = FALSE
 # model with only intercept
 M0 <- lm(I(logit(chdrisk)) ~ 1, data = fhsd)
@@ -201,14 +199,6 @@ cook2 <- cooks.distance(Mmanual)
 boxplot(x = list(abs(cook1), abs(cook2)),
         ylab = "Cooks Distances", col = c("yellow", "orange"))
 
-# Should this even be done since cooks is already done?
-# dffits1 <- dffits(Mstep)
-# dffits2 <- dffits(Mmanual)
-# 
-# boxplot(x = list(abs(dffits1), abs(dffits2)),
-#         ylab = "Abs. Leverages", col = c("yellow", "orange"))
-# 
-# cooks.distance(Mstep)
 ```
 
 \section{Model Selection}
