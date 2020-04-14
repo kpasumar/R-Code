@@ -91,7 +91,7 @@ vif
 \subsection{Automated Model Selection}
 
 ```{r}
-library(gtools)
+suppressWarnings(library(gtools))
 load_calcs = TRUE
 # model with only intercept
 M0 <- lm(I(logit(chdrisk)) ~ 1, data = fhsd)
@@ -275,7 +275,6 @@ boxplot(x = list(abs(cook1), abs(cook2)),
 This is the written function
 ```{r}
 library(statmod) # Load this package for using gauss.quad.prob() function
-library(gtools) # Load this package for using the logit function
 
 #' Following function calculates the mean of logit-normal distribution
 #' 
