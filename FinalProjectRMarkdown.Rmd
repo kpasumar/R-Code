@@ -87,7 +87,7 @@ vif
 
 ```{r}
 library(gtools)
-load_calcs = TRUE
+load_calcs = FALSE
 # model with only intercept
 M0 <- lm(I(logit(chdrisk)) ~ 1, data = fhsd)
 Mmax <- lm(I(logit(chdrisk)) ~ (.)^2, data = fhsd)
@@ -177,7 +177,7 @@ anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday))
 # Now remove less insignificant interactions
 anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:heartrte 
                     - bpmeds:prevstrk))
-Mdl_manual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:heartrte 
+Mmanual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:heartrte 
                     - bpmeds:prevstrk)     # Denotes manually constructed model
 ```
 
@@ -186,12 +186,146 @@ Mdl_manual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:he
 \subsection{Leverage and Influence Measures}
 
 ```{r}
-# hatvalues(Mstep) # Leverages of stepwise model
+hat1 <- hatvalues(Mstep) # Leverages of stepwise model
+hat2 <- hatvalues(Mmanual)
+
+# Should be ideally close to 1 (as in course notes)
+boxplot(x = list(abs(hat1), abs(hat2)),
+        ylab = "Abs. Leverages", col = c("yellow", "orange"))
+plot(abs(hat1),abs(hat2)) # Nearly linear
+
+cook1 <- cooks.distance(Mstep)
+cook2 <- cooks.distance(Mmanual)
+
+ # Values should ideally be close to zero
+boxplot(x = list(abs(cook1), abs(cook2)),
+        ylab = "Cooks Distances", col = c("yellow", "orange"))
+
+# Should this even be done since cooks is already done?
+# dffits1 <- dffits(Mstep)
+# dffits2 <- dffits(Mmanual)
+# 
+# boxplot(x = list(abs(dffits1), abs(dffits2)),
+#         ylab = "Abs. Leverages", col = c("yellow", "orange"))
 # 
 # cooks.distance(Mstep)
 ```
 
 \section{Model Selection}
 
+\subsection{Cross Validation}
+
+This is the written function
+```{r}
+library(statmod) # Load this package for using gauss.quad.prob() function
+library(gtools) # Load this package for using the logit function
+
+#' Following function calculates the mean of logit-normal distribution
+#' 
+#' @param mu Mean of underlying normal distribution
+#' @param sigma Standard deviation of underlying normal distribution
+#' 
+#' @return A single number representing mean of the logit-normal distribution
+#' 
+#' @details The calculation of w's and g(x)'s is vectorized
+logitnorm_mean <- function(mu,sigma){
+  v = 1/(1+ exp(-mu))           # Value passed into both shape parameters
+  alpha_1 = 1/(sigma^2 * (1-v)) # Shape parameter 1
+  alpha_2 = 1/(v * sigma^2) # Shape parameter 2
+  # Calculate nodes and weights for Gaussian quadrature
+  gqp <- gauss.quad.prob(n = 10,dist = "beta",alpha = alpha_1,beta = alpha_2)
+  x <- gqp$nodes   # Extract the nodes into a vector
+  w <- gqp$weights # Similarly the weights
+  # Apply the function g (defined in the project description) onto the above x's
+  g <- dnorm(logit(x),mean = mu,sd = sigma,log = TRUE) - log(1-x) - 
+       dbeta(x,shape1 = alpha_1,shape2 = alpha_2,log = TRUE)
+  # Calculate and return the mean
+  answer <- sum(w*exp(g)) 
+  return(answer)
+}
+
+# For testing
+mu <- c(0.7,3.2,-1.1)
+sigma <- c(0.8,0.1,2.3)
+sapply(1:3, function(i) logitnorm_mean(mu[i],sigma[i]))
+
+```
+
+```{r}
+load_calcs = FALSE
+
+# compare Mstep to Mmanual
+M1 <- Mstep
+M2 <- Mmanual
+Mnames <- expression(M[Step], M[Manual])
+
+# number of cross-validation replications
+nreps <- 1e3
+
+ntot <- nrow(fhsd)   # total number of observations
+ntrain <- 1800       # for fitting MLE's, roughly 80% of total
+ntest <- ntot-ntrain # for out-of-sample prediction
+
+# storage space
+mspe1 <- rep(NA, nreps) # mspe for M1
+mspe2 <- rep(NA, nreps) # mspe for M2
+
+if (!load_calcs){
+system.time({
+  for(ii in 1:nreps) {
+    train.ind <- sample(ntot, ntrain) # training observations
+    
+    # Update the models for this training set
+    M1.cv <- update(M1, subset = train.ind)
+    M2.cv <- update(M2, subset = train.ind)
+    
+    # MLE of sigma
+    M1.sigma <- sqrt(sum(resid(M1.cv)^2)/ntrain) 
+    M2.sigma <- sqrt(sum(resid(M2.cv)^2)/ntrain)
+    
+    # predictions of logit(chdrisk) for test set
+    predictions.M1 <- predict(M1.cv,newdata = fhsd[-train.ind,])
+    predictions.M2 <- predict(M2.cv,newdata = fhsd[-train.ind,])
+    
+   # predictions of chdrisk for the test set
+   values.M1 <- sapply(predictions.M1, function(i) logitnorm_mean(i,M1.sigma))
+   values.M2 <- sapply(predictions.M2, function(i) logitnorm_mean(i,M2.sigma))
+    
+    M1.res <- fhsd$chdrisk[-train.ind] -   # test observations
+              values.M1                    # prediction using training data
+    M2.res <- fhsd$chdrisk[-train.ind] - values.M2
+    
+    # mspe for each model
+    mspe1[ii] <- mean(M1.res^2)
+    mspe2[ii] <- mean(M2.res^2)
+    
+  }
+})
+}
+
+# the caching/loading block
+if(!load_calcs) {
+  saveRDS(list(mspe1 = mspe1,mspe2 = mspe2), file = "cross_validation_automated.rds") 
+} else {
+  # just load the calculations
+  tmp <- readRDS("cross_validation_automated.rds")
+  mspe1 <- tmp$mspe1
+  mspe2 <- tmp$mspe2
+  rm(tmp) # optionally remove tmp from workspace
+}
+
+# compare Root MSPEs of both the models through boxplots
+boxplot(x = list(sqrt(mspe1), sqrt(mspe2)), names = Mnames,
+        main = "Root MSPE",
+        ylab = expression(sqrt(MSPE)),
+        col = c("yellow", "orange"))
+
+# compare predictions by training set
+par(mar = c(5, 5, 2, 1))
+plot(mspe1, mspe2, pch = 16,
+     xlab = Mnames[1], ylab = Mnames[2],
+     main = paste0("MSPE of ", Mnames[1]," vs ", Mnames[2])) # Fix this
+abline(a = 0, b = 1, col= "red", lwd = 2)
+```
 
 \section{Discussion}
