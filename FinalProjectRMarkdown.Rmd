@@ -27,7 +27,7 @@ fhsd <- read.csv('fhs.csv')
 # summary statistics on explanatory variables broken into two small tables
 kable(summary(fhsd[,1:9]), "latex", caption = "Summary Statistics", booktabs = T) %>%
 kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
-kable(summary(fhsd[,10:18]), "latex", booktabs = T) %>%
+kable(summary(fhsd[,10:18]), "latex", booktabs = T) %>%     # Table continued on another line
 kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
 ```
 
@@ -160,30 +160,54 @@ identical(names(beta.back)[names(beta.back) %in% names(beta.step)], names(beta.b
 
 \subsection{Manual Model Selection}
 
+The following table lists terms in the stepwise model that result in insignifance when F-test is perfomed by removing them solely from the stepwise model along with corresponding p-values in a sorted order.
+
+```{r,echo=FALSE}
+library(stringr)                                  # For string operations
+table <- c()                                      # Initialize empty vector
+names.table <- names(beta.step)                   # Obtain variate names in stepwise model 
+names.table <- str_remove_all(names.table,"Yes")  # Remove "Yes" from interactions
+names.table <- str_remove_all(names.table,"Male") # Remove "Male" from interactions
+
+# Perform F-tests with Mstep by removing one variate at a time 
+for(i in names.table){
+  # Obtain model without variate i
+  mdl <- lm(as.formula(paste0("update(Mstep, . ~ . -", i,")")),data = fhsd)
+  test <- anova(Mstep,mdl)               # F-Test between Stepwise and reduced model
+  table <- cbind(table,test$`Pr(>F)`[2]) # Add corresponding p-value to the table
+}
+
+table <- as.data.frame(table)
+colnames(table) <- names.table           # Add appropriate column names to the table
+table <- sort(table,decreasing = TRUE)   # Arrange variates by decreasing significance
+
+sig_values <- which(table >= 0.05)      # Significant p-values from the sorted table
+kable(table[,sig_values[1:9]],"latex", caption = "Variates/Interactions with significant p-values from F-test", 
+      booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position","scale_down"))
+kable(table[,sig_values[10:17]],"latex",booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position","scale_down"))
+```
+
+Looking at the above table, removing highly insignificant continuous variate interactions \texttt{cigpday:heartrte} and \texttt{diabp:cigpday}, we have the following p-value from F-test.
+
 ```{r}
-library(stringr) # For string operations
- table <- c() # Initialize empty vector
- names.table <- names(beta.step)                  # Obtain variate names in stepwise model 
- names.table <- str_remove_all(names.table,"Yes") # Remove "Yes" from interactions
- names.table <- str_remove_all(names.table,"Male") # Remove "Male"
- # Perform F-tests with Mstep by removing one variate at a time 
-  for(i in names.table){
-    # Obtain model without variate i
-    mdl <- lm(as.formula(paste0("update(Mstep, . ~ . -", i,")")),data = fhsd)
-   test <- anova(Mstep,mdl)               # F-Test between Stepwise and reduced model
-   table <- cbind(table,test$`Pr(>F)`[2]) # Add corresponding p-value to the table
-  }
- table <- as.data.frame(table)
- colnames(table) <- names.table            # Add appropriate column names to the table
-sort(table,decreasing = TRUE)              # Arrange variates by decreasing significance
 # Remove as many insignificant continuous variate interactions as possible
-anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday))
-#anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday -age:heartrte))
-# Now remove less insignificant interactions
-anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:heartrte 
-                    - bpmeds:prevstrk))
-Mmanual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:heartrte 
-                    - bpmeds:prevstrk)     # Denotes manually constructed model
+anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday))$`Pr(>F)`[2]
+```
+
+Assuming the insignificance threshold of 0.05, removing categorical/continuous variate interaction \texttt{bpmeds:prevstrk} esults in the following p-value.
+
+```{r}
+# Now remove insignificant interactions from categroical variates
+anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday- bpmeds:prevstrk))$`Pr(>F)`[2]
+```
+
+Since above p-value is just slightly greater than 0.05, removing the above interactions from stepwise model is insiginificant. Therefore a reduced model can be obtained from stepwise in the followng way.
+
+```{r}
+# Thus we have the following manually constructed model
+Mmanual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - bpmeds:prevstrk)   
 ```
 
 \section{Model Diagnostics}
@@ -250,20 +274,27 @@ abline(a = 0, b = 1, col = "red") # add 45 degree line
 
 \subsection{Leverage and Influence Measures}
 
-```{r}
+We have the following boxplot of absolute values of leverages of both the step-wise and manual models.
+
+```{r,echo=FALSE}
+Mnames <- expression(M[Step], M[Manual])
+
 hat1 <- hatvalues(Mstep) # Leverages of stepwise model
 hat2 <- hatvalues(Mmanual)
 
-# Should be ideally close to 1 (as in course notes)
-boxplot(x = list(abs(hat1), abs(hat2)),
+# Create a box plot of absolute leverages of both models
+boxplot(x = list(abs(hat1), abs(hat2)), names = Mnames,
         ylab = "Abs. Leverages", col = c("yellow", "orange"))
-plot(abs(hat1),abs(hat2)) # Nearly linear
+```
 
+Similarly, we have the following boxplot of cook's distances of both the models.
+
+```{r,echo=FALSE}
+# Similarly compute and plot cook's distance for both the models
 cook1 <- cooks.distance(Mstep)
 cook2 <- cooks.distance(Mmanual)
 
- # Values should ideally be close to zero
-boxplot(x = list(abs(cook1), abs(cook2)),
+boxplot(x = list(abs(cook1), abs(cook2)), names = Mnames,
         ylab = "Cooks Distances", col = c("yellow", "orange"))
 
 ```
@@ -272,8 +303,7 @@ boxplot(x = list(abs(cook1), abs(cook2)),
 
 \subsection{Cross Validation}
 
-This is the written function
-```{r}
+```{r,echo=FALSE}
 library(statmod) # Load this package for using gauss.quad.prob() function
 
 #' Following function calculates the mean of logit-normal distribution
@@ -299,21 +329,26 @@ logitnorm_mean <- function(mu,sigma){
   answer <- sum(w*exp(g)) 
   return(answer)
 }
+```
 
-# For testing
+Before performing cross-valiation analysis, function \texttt{logitnorm$\_$mean} is created to approximate the conditional mean \texttt{E[chdrisk|x]} based on the regression model logit(\texttt{chdrisk})|x $\sim  N(x'\beta,\sigma^2)$ (look into the Appendix for code). The following output is produced when tested.
+
+```{r}
+# Test the function
 mu <- c(0.7,3.2,-1.1)
 sigma <- c(0.8,0.1,2.3)
+# Returns results expected in the project desciption
 sapply(1:3, function(i) logitnorm_mean(mu[i],sigma[i]))
 
 ```
 
-```{r}
+The above function is then used to perform cross-validation analysis and the following boxplot that shows MSPE of the both the models is produced.
+
+```{r,echo=FALSE}
 load_calcs = TRUE
 
-# compare Mstep to Mmanual
 M1 <- Mstep
 M2 <- Mmanual
-Mnames <- expression(M[Step], M[Manual])
 
 # number of cross-validation replications
 nreps <- 1e3
@@ -376,12 +411,36 @@ boxplot(x = list(sqrt(mspe1), sqrt(mspe2)), names = Mnames,
         ylab = expression(sqrt(MSPE)),
         col = c("yellow", "orange"))
 
-# compare predictions by training set
-par(mar = c(5, 5, 2, 1))
-plot(mspe1, mspe2, pch = 16,
-     xlab = Mnames[1], ylab = Mnames[2],
-     main = paste0("MSPE of ", Mnames[1]," vs ", Mnames[2])) # Fix this
-abline(a = 0, b = 1, col= "red", lwd = 2)
+# compare predictions by training set; is this needed?
+# par(mar = c(5, 5, 2, 1))
+# plot(mspe1, mspe2, pch = 16,
+#      xlab = Mnames[1], ylab = Mnames[2],
+#      main = paste0("MSPE of ", Mnames[1]," vs ", Mnames[2])) # Fix this
+# abline(a = 0, b = 1, col= "red", lwd = 2)
+```
+
+Model chosen will be the manual one [ADD MORE]
+These are the parameter estimates, std.errors and p-values of the manually constructed model.
+
+```{r,echo=FALSE}
+coeffs <- summary(Mmanual) # Obtain summary of manually constructed model
+
+# Function to create a table of parameters estimates, std.errors and p-values for 10 columns
+call_kable <- function(i){
+if(i != 1) caption = NULL
+else caption = "Summary of chosen manually constructed model"
+kable(t(coeffs$coefficients[i:(i+8),c(1,2,4)]), "latex", caption = caption, booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+}
+
+call_kable(1)
+call_kable(10)
+call_kable(19)
+call_kable(28)
+call_kable(37)
+call_kable(46)
+call_kable(55)
+
 ```
 
 \section{Discussion}
