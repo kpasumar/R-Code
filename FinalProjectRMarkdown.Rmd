@@ -21,6 +21,7 @@ First, take a look at summary statistics of the Framingham Heart Study dataset.
 ```{r echo=FALSE}
 library(knitr)
 suppressWarnings(library(kableExtra))
+library(gtools)
 # Hide NA values from summary statistics which appear for categorical variates
 options(knitr.kable.NA = '') 
 fhsd <- read.csv('fhs.csv')
@@ -31,7 +32,7 @@ kable(summary(fhsd[,10:18]), "latex", booktabs = T) %>%
 kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
 ```
 
-First observation we make from the summary is that the median and average ages are around 60, which means the survey seems to have been done on a relatively old group of people. We also have a significantly higher number of females in the study, almost 30% more than the number of males. This might affect the nature of the data to be skewed towards behaviours and physical attributes associated with females.
+First observation we make from the summary is that the median and average ages are around 60, which means the survey seems to have been done on a relatively old group of people. We also have a significantly higher number of females in the study, almost 30% more than the number of males. This might affect the nature of the data to be skewed towards behaviors and physical attributes associated with females.
 
 A further inspection of the expected coronary heart disease (CHD) risk against certain categorical variates, gives more insights.
 
@@ -50,15 +51,15 @@ by(fhsd$chdrisk, fhsd$prevstrk, summary)
 
 Again, we see the same results with people who had a stroke before the study, with even a higher difference between the two groups.
 
-\newpage
-
-Now take a look at pair plots of all numeric explanatory variates i.e. variates excluding response variate \texttt{chdrisk} and logical variates such as \texttt{cursmoke}. 
+Now take a look at pair plots of all numeric explanatory/response variates i.e. variates excluding logical variates such as \texttt{cursmoke}. 
 
 
 ```{r echo=FALSE,fig.width= 8,fig.height=8.5}
 # pair plots for continuous variates
-pairs(~ totchol + age + sysbp + diabp + cigpday + bmi + 
-        heartrte + glucose + hdlc + ldlc, 
+pairs(~ chdrisk + totchol + age + 
+        sysbp + diabp + cigpday + 
+        bmi + heartrte + glucose + 
+        hdlc + ldlc, 
       col = "blue",                                         # Change color
       pch = 18,                                            # Change shape of points
       cex = 0.4,
@@ -67,8 +68,7 @@ pairs(~ totchol + age + sysbp + diabp + cigpday + bmi +
       data = fhsd)
 ```
 
-From the pair plots, we can observe a strong correlation between low density lipoprotein cholesterol and serum total cholestrol. This correlation could be explained by the fact that there could be a relationship between
-the amount [TO BE CONTINUED]
+From the pair plots, we can observe a strong correlation between low density lipoprotein cholesterol and serum total cholestrol. As total cholestrol increases, low density lipoprotein cholosterol seems to increase as well. Another positive correlation can be observed between systolic and diastolic blood pressures. In fact, from this we can infer that blood pressure probably increases and decreases generally for both systolic and diastolic states.
 
 Now take a look at the VIFs of these variates.
 
@@ -92,25 +92,54 @@ vif
 
 \subsection{Automated Model Selection}
 
+In this section we start producing a candidate model using automated model selection. Here, we choose to use a stepwise as we have observed from lectures that it usually acts as a compromise between backward and forward selection methods. This way, we avoid having relatively a lot of variates in our final model and also we capture as many necessary variates as possible.
+
+We first try our initial and maximum models as follows,
+
 ```{r}
-library(gtools)
-load_calcs = TRUE
 # model with only intercept
 M0 <- lm(I(logit(chdrisk)) ~ 1, data = fhsd)
+# model with all interactions
 Mmax <- lm(I(logit(chdrisk)) ~ (.)^2, data = fhsd)
-# starting model for stepwise selection
-Mstart <- lm(I(logit(chdrisk)) ~ ., data = fhsd) 
+```
+
+However, we end up getting NAs in the coefficients for two interactions (Currently smoking with cigarettes per day and anti-hypertensive medication with previous hypertension).
+
+```{r echo=FALSE}
+
 # find model coefficients which are NA
 beta.max <- coef(Mmax)
 names(beta.max)[is.na(beta.max)]
+
+```
+
+If we investigate the relationship between these variables as shown below, we see that those who do not smoke have no cigarattes per day making the two columns cursmoke and cigpday linearly dependent.
+
+Furthermore, if someone did not hypertension, they would not use anti-hypertensive medication causing a linear dependence between these two columns.
+
+```{r}
 # find the problem with the NA coeffs
 kable(table(fhsd[c("cursmoke", "cigpday")]), "latex")
 kable(table(fhsd[c("bpmeds", "prevhyp")]), "latex")
+```
+
+To fix these we remove these two interactions from Mmax to retain the following model:
+
+```{r}
+
 # remove the coeffs with the problem and add quadratic terms for the continuous variables
 Mmax <- lm(I(logit(chdrisk)) ~ (.)^2 - cursmoke:cigpday - bpmeds:prevhyp + 
              I(totchol ^ 2) + I(sysbp ^ 2) + I(diabp ^ 2) 
            + I(bmi ^ 2) + I(glucose ^ 2)
            + I(hdlc ^ 2) + I(ldlc ^ 2), data = fhsd)
+
+```
+
+```{r echo=FALSE}
+
+load_calcs = TRUE
+# starting model for stepwise selection
+Mstart <- lm(I(logit(chdrisk)) ~ ., data = fhsd) 
 anyNA(coef(Mmax)) # check if there are any remaining NAs
 if(!load_calcs){
   #forward model selection
@@ -145,20 +174,24 @@ if(!load_calcs) {
   Mstep <- tmp$Mstep
   rm(tmp) # optionally remove tmp from workspace
 }
-# Stepwise model selection
-Mstep$call
 # Forward model selection
-Mfwd$call
+#Mfwd$call
 # Backward model selection
-Mback$call
-beta.fwd = coef(Mfwd)
-beta.back = coef(Mback)
+#Mback$call
+#beta.fwd = coef(Mfwd)
+#beta.back = coef(Mback)
 beta.step = coef(Mstep)
-identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.back)], names(beta.fwd))
-identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.step)], names(beta.fwd))
-identical(names(beta.back)[names(beta.back) %in% names(beta.step)], names(beta.back))
+#identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.back)], names(beta.fwd))
+#identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.step)], names(beta.fwd))
+#identical(names(beta.back)[names(beta.back) %in% names(beta.step)], names(beta.back))
 ```
 
+Finally, we produce the following model using stepwise model selection:
+
+```{r}
+# Stepwise model selection
+Mstep$call
+```
 
 \subsection{Manual Model Selection}
 
@@ -192,42 +225,45 @@ Mmanual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - cigpday:heart
 
 \subsection{Residual Plots}
 
-In this section we analyse the assumption that our residuals follow a normal distribution and check the homoscedasity assumption.
+In this section we analyse the assumption that our residuals follow a normal distribution and check the homoscedasticity assumption.
 
-First, we have that the most normal looking residuals assuming that the model is true, would be the studentized residuals, so to check the homoscedasity we plot those values against the predicted values, as shown below:
+First, we have that the most normal looking residuals assuming that the model is true, would be the studentized residuals on the standard deviation scale, so to check the homoscedasticity assumption we plot those values against the predicted values, as shown below:
 
-```{r}
+```{r echo=FALSE}
 # First we analyze Mstep
 # get the hat values
+sigma.hat <- sigma(Mstep)
 h <- hatvalues(Mstep)
-res.step <- resid(Mstep)/sqrt(1-h) # studentized residuals, but on the data scale
+res.step <- resid(Mstep)/(sigma.hat * sqrt(1-h)) # studentized residuals, on the standard deviation scale
 cex <- .8 # controls the size of the points and labels
 par(mar = c(4,4,.5,.1))
 plot(predict(Mstep), res.step, pch = 21, bg = "blue", cex = cex, cex.axis = cex,xlab = "Predicted logit(CHD Risk - Stepwise Model)", ylab = "Studentized Residuals")
 abline(h = 0, lty = 1, col = "black") # add horizontal line at 0
 
+sigma.hat <- sigma(Mmanual)
 # Then we analyze Mdl_manual
 # get the hat values
 h <- hatvalues(Mmanual)
-res.manual <- resid(Mmanual)/sqrt(1-h) # studentized residuals, but on the data scale
+res.manual <- resid(Mmanual)/(sigma.hat * sqrt(1-h)) # studentized residuals, but on the data scale
 cex <- .8 # controls the size of the points and labels
 par(mar = c(4,4,.5,.1))
 plot(predict(Mmanual), res.manual, pch = 21, bg = "red", cex = cex, cex.axis = cex,xlab = "Predicted logit(CHD Risk - Manual Model)", ylab = "Studentized Residuals")
 abline(h = 0, lty = 1, col = "black") # add horizontal line at 0
 ```
 
+Analysis of the graphs reveals that both models have very similar residual distributions, and for both, there seems to be a pattern of decreasing spread of residuals as the predicted logit value increases. Hence, we can conclude that both models are based on a violated homoscedasity assumption, i.e., in light of the observed data there seems to be a change in the standard deviation of the response variate as the explanatory variables change.
 
 
 Then to check our assumption of normality of residuals we plot the residuals on a QQPlot and a histogram:
 
-```{r}
+```{r echo=FALSE}
 
 # plot standardized residuals
-sigma.hat <- sigma(Mmanual)
+
 cex <- .8
 par(mfrow = c(1,2), mar = c(4,4,.1,.1))
 # histogram
-hist(res.manual, breaks = 50, freq = FALSE, cex.axis = cex,xlab = "Studentized Residual CHD Risk (Manual model)", main = "")
+hist(res.manual, breaks = 50, freq = FALSE, cex.axis = cex,xlab = "Studentized Residual CHD Risk (Manual)", main = "")
 
 curve(dnorm(x), col = "red", add = TRUE) 
 # theoretical normal curve
@@ -240,7 +276,7 @@ sigma.hat <- sigma(Mstep)
 cex <- .8
 par(mfrow = c(1,2), mar = c(4,4,.1,.1))
 # histogram
-hist(res.step, breaks = 50, freq = FALSE, cex.axis = cex,xlab = "Studentized Residual CHD Risk (Stepwise model)", main = "")
+hist(res.step, breaks = 50, freq = FALSE, cex.axis = cex,xlab = "Studentized Residual CHD Risk (Stepwise)", main = "")
 
 curve(dnorm(x), col = "red", add = TRUE) 
 # theoretical normal curve
@@ -249,6 +285,11 @@ qqnorm(res.step, main = "", pch = 16, cex = cex, cex.axis = cex)
 abline(a = 0, b = 1, col = "red") # add 45 degree line
 
 ```
+
+
+Again, from both plots we see a huge similaruty between both models, and for both we seem to have a normal distribution being satisfied by the residuals. From the QQPlot, we can observe that most points lie on the theoretical line.
+
+From this diagnostics there seems to not be a significant departure from our assumptions of homoscedasticity and normality of residuals.
 
 \subsection{Leverage and Influence Measures}
 
@@ -396,3 +437,6 @@ abline(a = 0, b = 1, col= "red", lwd = 2)
 ```
 
 \section{Discussion}
+
+
+
