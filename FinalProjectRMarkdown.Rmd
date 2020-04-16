@@ -492,5 +492,12 @@ call_kable(55)
 
 \section{Discussion}
 
+From our analysis, we make the following conclusions :
+
+1. Any conclusions we make might be more biased towards females due to the signifcantly higher females than males in the study.
+    
+2. From our pair plots we can observe that high HDL cholestrol levels have people with less risk for heart disease. So it seems like higher         HDL cholestrol levels are associated with less expected CHD risk. This effect can be supported by the relatively low p-value for the             significance of hdlc in the presence of other variates in the model. On the contrary, people who have had previous mycordial infractions,        strokes, or hypertension seem to have a higher expected CHD risk, as shown by the relatively high positive estimated coefficients and very       low p-values. 
+    
+3. We can observe from the model diagnostics of the chosen model that there might be a slight departure from the assumption of                      homoscedasticity. In fact, it seems as though the standard deviation decreases as we get into the region of people with high risk of             coronary heart disease. This might be due to the fact that we have relatively more variates that have a positive association with higher         CHD risk and also less people with high CHD risk, hence we have more predictive power when presented with a person with factors of high          CHD risk. However, for people with low CHD, it might be harder to predict their CHD risk due to more variation that arises from having a         lot more of people with relatively low CHD risk in the study. Therefore, our conclusions regarding factors that relate to high CHD risk          might be stronger than those that relate to lower CHD risks.
 
 
