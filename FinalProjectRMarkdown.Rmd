@@ -11,7 +11,8 @@ output:
 
 \section{Summary}
 
-The objective of this report is to come up with a suitable model that best predicts the risk score for CHD based on other variates available in the Framingham Heart Study dataset. [TBC]
+The objective of this report is to come up with a suitable model that best predicts the risk score for CHD based on other variates available in the Framingham Heart Study dataset. [WRITE ABOUT STATISTICAL ANALYSIS]
+Stepwise automated model selection is used to create a regression model for the response variate logit(\texttt{chdrisk}) based on other covariates and their interactions. Then after conducting some F-tests, another model is manually constructed by removing some interactions from the stepwise model.Both the models are diagnosed and the latter is selected to have better predictive as well as explanatory power.
 
 
 \section{Descriptive Statistics}
