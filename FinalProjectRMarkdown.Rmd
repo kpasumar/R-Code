@@ -11,8 +11,7 @@ output:
 
 \section{Summary}
 
-The objective of this report is to come up with a suitable model that best predicts the risk score for CHD based on other variates available in the Framingham Heart Study dataset. [WRITE ABOUT STATISTICAL ANALYSIS]
-Stepwise automated model selection is used to create a regression model for the response variate logit(\texttt{chdrisk}) based on other covariates and their interactions. Then after conducting some F-tests, another model is manually constructed by removing some interactions from the stepwise model.Both the models are diagnosed and the latter is selected to have better predictive as well as explanatory power.
+The objective of this report is to come up with a suitable model that best predicts the risk score for CHD based on other variates available in the Framingham Heart Study dataset. First, descriptive analysis is performed, in which collinearity is found between serum total cholestrol and low density lipoprotein cholesterol. Moreover, a bias is observed in terms of the number of females in the study, as well as relations between having previous health complications, like stokes or hypertensions, with high CHD risk. Stepwise automated model selection is used to create a regression model for the response variate logit(\texttt{chdrisk}) based on other covariates and their interactions. Then after conducting some F-tests, another model is manually constructed by removing some interactions from the stepwise model.Both the models are diagnosed and the latter is selected to have better predictive as well as explanatory power.
 
 
 \section{Descriptive Statistics}
