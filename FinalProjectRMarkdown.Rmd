@@ -54,7 +54,7 @@ Again, we see the same results with people who had a stroke before the study, wi
 
 Now take a look at pair plots of all numeric explanatory/response variates i.e. variates excluding logical variates such as \texttt{cursmoke}. 
 
-```{r echo=FALSE,fig.width= 6,fig.height=6.5}
+```{r echo=FALSE,fig.width= 8,fig.height=6.5}
 # pair plots for continuous variates
 pairs(~ chdrisk + totchol + age + 
         sysbp + diabp + cigpday + 
