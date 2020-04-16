@@ -52,7 +52,7 @@ by(fhsd$chdrisk, fhsd$prevstrk, summary)
 
 Again, we see the same results with people who had a stroke before the study, with even a higher difference between the two groups.
 
-Now take a look at pair plots of all numeric explanatory/response variates i.e. variates excluding logical variates such as \texttt{cursmoke}. 
+Now take a look at pair plots of all numeric variates i.e. all variates excluding logical variates such as \texttt{cursmoke}. 
 
 ```{r echo=FALSE,fig.width= 8,fig.height=6.5}
 # pair plots for continuous variates
@@ -68,7 +68,7 @@ pairs(~ chdrisk + totchol + age +
       data = fhsd)
 ```
 
-From the pair plots, we can observe a strong correlation between low density lipoprotein cholesterol and serum total cholestrol. As total cholestrol increases, low density lipoprotein cholosterol seems to increase as well. Another positive correlation can be observed between systolic and diastolic blood pressures. In fact, from this we can infer that blood pressure probably increases and decreases generally for both systolic and diastolic states.
+From the pair plots, we can observe a strong linear relationship between low density lipoprotein cholesterol and serum total cholestrol. As total cholestrol increases, low density lipoprotein cholosterol seems to increase as well. Another positive correlation can be observed between systolic and diastolic blood pressures. In fact, from this we can infer that blood pressure probably increases and decreases generally for both systolic and diastolic states at the same time.
 
 Now take a look at the VIFs of these variates.
 
@@ -80,30 +80,33 @@ X <- model.matrix(lm(chdrisk ~ . -  1, data = fhsd))
 X <- X[,-1]
 # calculate vif
 vif <- diag(solve(cor(X)))
-vif
+kable(t(round(vif,3)),"latex",booktabs = T,caption = "VIFs of Variates") %>%
+kable_styling(latex_options = c("striped", "hold_position","scale_down"),font_size = 11)
 ```
 
-We observe higher VIF values higher than 10 for both serum total cholestrol and low density lipoprotein cholesterol, which means they are significantly colinear.
+We observe VIF values higher than 10 for both serum total cholestrol and low density lipoprotein cholesterol, which means they have significant colinearity with other variates.
 
 \section{Candidate Models}
 
 \subsection{Automated Model Selection}
 
-In this section we start producing a candidate model using automated model selection. Here, we choose to use a stepwise as we have observed from lectures that it usually acts as a compromise between backward and forward selection methods. This way, we avoid having relatively a lot of variates in our final model and also we capture as many necessary variates as possible.
+In this section we start producing a candidate model using automated model selection. Here, we choose to use a stepwise as we have observed from lectures that it usually acts as a compromise between backward and forward selection methods. This way, we avoid having a lot of variates in our final model relatively and also we capture as many necessary variates as possible.
 
-We first try our initial and maximum models as follows,
+We first try our initial and maximum models as follows.
 
 ```{r echo=FALSE}
 load_calcs = TRUE
 # model with only intercept
 M0 <- lm(I(logit(chdrisk)) ~ 1, data = fhsd)
+M0$call
 # model with all interactions
 Mmax <- lm(I(logit(chdrisk)) ~ (.)^2, data = fhsd)
+Mmax$call
 ```
 
-However, we end up getting NAs in the coefficients for two interactions (Currently smoking with cigarettes per day and anti-hypertensive medication with previous hypertension).
+However, we end up getting NAs in the coefficients for two interactions \texttt{cursmoke:cigpday} and \texttt{bpmeds:prevhyp}.
 
-```{r eval=FALSE, include=FALSE}
+```{r, eval=FALSE, include=FALSE}
 
 # find model coefficients which are NA
 beta.max <- coef(Mmax)
@@ -119,25 +122,19 @@ Furthermore, if someone did not hypertension, they would not use anti-hypertensi
 # find the problem with the NA coeffs
 kable(table(fhsd[c("cursmoke", "cigpday")]), "latex", caption = "cursmoke against cigpday", booktabs = T) %>% 
 kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
-kable(table(fhsd[c("bpmeds", "prevhyp")]), "latex", caption = "cursmoke against cigpday", booktabs = T)  %>%    
-kable_styling(latex_options = c("striped", "hold_position"))
+kable(table(fhsd[c("bpmeds", "prevhyp")]), "latex", caption = "bpmeds against prevhyp", booktabs = T)  %>%    
+kable_styling(latex_options = c("striped", "hold_position"),font_size = 6)
 ```
 
-To fix these we remove these two interactions from Mmax to retain the following model:
+To fix these we remove these two interactions from Mmax and add some quadratic terms for continuous variates in hope of having some additional predicitive power.
 
-```{r}
-
+```{r,echo= FALSE}
 # remove the coeffs with the problem and add quadratic terms for the continuous variables
 Mmax <- lm(I(logit(chdrisk)) ~ (.)^2 - cursmoke:cigpday - bpmeds:prevhyp + 
              I(totchol ^ 2) + I(sysbp ^ 2) + I(diabp ^ 2) 
            + I(bmi ^ 2) + I(glucose ^ 2)
            + I(hdlc ^ 2) + I(ldlc ^ 2), data = fhsd)
-
-```
-
-We also add some quadratic terms for continuous variates in hope of having some additional predicitive power.
-
-```{r echo=FALSE}
+Mmax$call
 
 load_calcs = TRUE
 # starting model for stepwise selection
@@ -186,7 +183,7 @@ if(!load_calcs) {
 Finally, we produce the following model using stepwise model selection:
 
 ```{r echo=FALSE}
-beta.step = coef(Mstep)
+beta.step <- coef(Mstep)
 Mstep$call
 #identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.back)], names(beta.fwd))
 #identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.step)], names(beta.fwd))
@@ -240,11 +237,12 @@ Assuming the insignificance threshold of 0.05, removing categorical/continuous v
 anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday- bpmeds:prevstrk))$`Pr(>F)`[2]
 ```
 
-Since above p-value is just slightly greater than 0.05, removing the above interactions from stepwise model is insiginificant. Therefore a reduced model can be obtained from stepwise in the followng way.
+Since above p-value is just slightly greater than 0.05, removing the above 3 interactions from stepwise model is insiginificant. Therefore a reduced model can be obtained from stepwise in the following way.
 
-```{r}
+```{r,echo=FALSE}
 # Thus we have the following manually constructed model
 Mmanual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - bpmeds:prevstrk)   
+Mmanual$call
 ```
 
 \section{Model Diagnostics}
@@ -262,8 +260,9 @@ sigma.hat <- sigma(Mstep)
 h <- hatvalues(Mstep)
 res.step <- resid(Mstep)/(sigma.hat * sqrt(1-h)) # studentized residuals, on the standard deviation scale
 cex <- .8 # controls the size of the points and labels
-par(mar = c(4,4,.5,.1))
-plot(predict(Mstep), res.step, pch = 21, bg = "blue", cex = cex, cex.axis = cex,xlab = "Predicted logit(CHD Risk - Stepwise Model)", ylab = "Studentized Residuals")
+plot(predict(Mstep), res.step, pch = 21, bg = "blue", cex = cex, cex.axis = cex, 
+     main = "StepWise Model",
+     xlab = "Predicted logit(CHD Risk)", ylab = "Studentized Residuals")
 abline(h = 0, lty = 1, col = "black") # add horizontal line at 0
 
 sigma.hat <- sigma(Mmanual)
@@ -272,48 +271,49 @@ sigma.hat <- sigma(Mmanual)
 h <- hatvalues(Mmanual)
 res.manual <- resid(Mmanual)/(sigma.hat * sqrt(1-h)) # studentized residuals, but on the data scale
 cex <- .8 # controls the size of the points and labels
-par(mar = c(4,4,.5,.1))
-plot(predict(Mmanual), res.manual, pch = 21, bg = "red", cex = cex, cex.axis = cex,xlab = "Predicted logit(CHD Risk - Manual Model)", ylab = "Studentized Residuals")
+plot(predict(Mmanual), res.manual, pch = 21, bg = "red", cex = cex, cex.axis = cex,
+     main = "Manually Constructed Model",
+     xlab = "Predicted logit(CHD Risk)", ylab = "Studentized Residuals")
 abline(h = 0, lty = 1, col = "black") # add horizontal line at 0
 ```
 
-Analysis of the graphs reveals that both models have very similar residual distributions, and for both, there seems to be a pattern of decreasing spread of residuals as the predicted logit value increases. Hence, we can conclude that both models are based on a violated homoscedasity assumption, i.e., in light of the observed data there seems to be a change in the standard deviation of the response variate as the explanatory variables change.
+Analysis of the plots reveals that both models have very similar residual distributions, and for both, there seems to be a pattern of decreasing spread of residuals as the predicted logit value increases. Hence, we can conclude that both models are based on a violated homoscedasity assumption, i.e., in light of the observed data there seems to be a change in the standard deviation of the response variate as the explanatory variables change.
 
 
-Then to check our assumption of normality of residuals we plot the residuals on a QQPlot and a histogram:
+Then to check our assumption of normality of residuals we plot the residuals on a histogram and a QQPlot:
 
 ```{r echo=FALSE,fig.width= 8,fig.height=4}
-
 # plot standardized residuals
-
 cex <- .8
-par(mfrow = c(1,2), mar = c(4,4,.1,.1))
+par(mfrow = c(1,2),oma = c(0,0,2,0))
 # histogram
-hist(res.manual, breaks = 50, freq = FALSE, cex.axis = cex,xlab = "Studentized Residual CHD Risk (Manual)", main = "")
+hist(res.manual, breaks = 50, freq = FALSE, cex.axis = cex,
+     xlab = "Studentized Residual logit(CHD Risk)",main = "")
 
-curve(dnorm(x), col = "red", add = TRUE) 
-# theoretical normal curve
+curve(dnorm(x), col = "red", add = TRUE) # theoretical normal curve
+
 #qq-plot
-qqnorm(res.manual, main = "", pch = 16, cex = cex, cex.axis = cex)
+qqnorm(res.manual,pch = 16, cex = cex, cex.axis = cex,main = "")
 abline(a = 0, b = 1, col = "red") # add 45 degree line
+mtext(expression(bold("Manually Constructed Model")),outer = TRUE,cex = 1.5,at = c(0.5,-1))
 
 # plot standardized residuals
 sigma.hat <- sigma(Mstep)
-cex <- .8
-par(mfrow = c(1,2), mar = c(4,4,.1,.1))
+par(mfrow = c(1,2),oma = c(0,0,2,0))
 # histogram
-hist(res.step, breaks = 50, freq = FALSE, cex.axis = cex,xlab = "Studentized Residual CHD Risk (Stepwise)", main = "")
+hist(res.step, breaks = 50, freq = FALSE, cex.axis = cex,
+     xlab = "Studentized Residual logit(CHD Risk)", main = "")
 
-curve(dnorm(x), col = "red", add = TRUE) 
-# theoretical normal curve
+curve(dnorm(x), col = "red", add = TRUE) # theoretical normal curve
+
 #qq-plot
 qqnorm(res.step, main = "", pch = 16, cex = cex, cex.axis = cex)
 abline(a = 0, b = 1, col = "red") # add 45 degree line
-
+mtext(expression(bold("StepWise Model")),outer = TRUE,cex = 1.5,at = c(0.5,-1))
 ```
 
 
-Again, from both plots we see a huge similaruty between both models, and for both we seem to have a normal distribution being satisfied by the residuals. From the QQPlot, we can observe that most points lie on the theoretical line.
+Again, from both plots we see a huge similarity between both models, and for both we seem to have an approximately normal distribution being satisfied by the residuals. From the QQPlot, we can observe that most observations lie on the theoretical line.
 
 From this diagnostics there seems to not be a significant departure from our assumptions of homoscedasticity and normality of residuals.
 
@@ -466,7 +466,8 @@ boxplot(x = list(sqrt(mspe1), sqrt(mspe2)), names = Mnames,
 # abline(a = 0, b = 1, col= "red", lwd = 2)
 ```
 
-Model chosen will be the manual one [ADD MORE]
+From previous discussions about residuals, leverages and influence measures, both models seem to be almost identical. It can observed from the above boxplot that the manually constructed model has slightly lower MSPE values than the stepwise model and therefore has slightly better predictive power. Also, the manual model has lesser covariate interactions than the stepwise model and hence has better explanatory power as well. Therefore, we select the manually constructed model over stepwise.
+
 These are the parameter estimates, std.errors and p-values of the manually constructed model.
 
 ```{r,echo=FALSE}
@@ -476,8 +477,8 @@ coeffs <- summary(Mmanual) # Obtain summary of manually constructed model
 call_kable <- function(i){
 if(i != 1) caption = NULL
 else caption = "Summary of chosen manually constructed model"
-kable(t(coeffs$coefficients[i:(i+8),c(1,2,4)]), "latex", caption = caption, booktabs = T) %>%
-kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+kable(t(round(coeffs$coefficients[i:(i+8),c(1,2,4)],4)), "latex", caption = caption, booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position","scale_down"))
 }
 
 call_kable(1)
