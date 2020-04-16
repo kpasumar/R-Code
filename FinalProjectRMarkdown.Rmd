@@ -53,7 +53,7 @@ Again, we see the same results with people who had a stroke before the study, wi
 
 Now take a look at pair plots of all numeric explanatory/response variates i.e. variates excluding logical variates such as \texttt{cursmoke}. 
 
-```{r echo=FALSE,fig.width= 8,fig.height=8.5}
+```{r echo=FALSE,fig.width= 6,fig.height=6.5}
 # pair plots for continuous variates
 pairs(~ chdrisk + totchol + age + 
         sysbp + diabp + cigpday + 
@@ -82,10 +82,7 @@ vif <- diag(solve(cor(X)))
 vif
 ```
 
-
-[ADD COMMENTS]
-
-\newpage
+We observe higher VIF values higher than 10 for both serum total cholestrol and low density lipoprotein cholesterol, which means they are significantly colinear.
 
 \section{Candidate Models}
 
@@ -95,7 +92,7 @@ In this section we start producing a candidate model using automated model selec
 
 We first try our initial and maximum models as follows,
 
-```{r}
+```{r echo=FALSE}
 load_calcs = TRUE
 # model with only intercept
 M0 <- lm(I(logit(chdrisk)) ~ 1, data = fhsd)
@@ -105,7 +102,7 @@ Mmax <- lm(I(logit(chdrisk)) ~ (.)^2, data = fhsd)
 
 However, we end up getting NAs in the coefficients for two interactions (Currently smoking with cigarettes per day and anti-hypertensive medication with previous hypertension).
 
-```{r echo=FALSE}
+```{r eval=FALSE, include=FALSE}
 
 # find model coefficients which are NA
 beta.max <- coef(Mmax)
@@ -117,10 +114,12 @@ If we investigate the relationship between these variables as shown below, we se
 
 Furthermore, if someone did not hypertension, they would not use anti-hypertensive medication causing a linear dependence between these two columns.
 
-```{r}
+```{r echo=FALSE}
 # find the problem with the NA coeffs
-kable(table(fhsd[c("cursmoke", "cigpday")]), "latex")
-kable(table(fhsd[c("bpmeds", "prevhyp")]), "latex")
+kable(table(fhsd[c("cursmoke", "cigpday")]), "latex", caption = "cursmoke against cigpday", booktabs = T) %>% 
+kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+kable(table(fhsd[c("bpmeds", "prevhyp")]), "latex", caption = "cursmoke against cigpday", booktabs = T)  %>%    
+kable_styling(latex_options = c("striped", "hold_position"))
 ```
 
 To fix these we remove these two interactions from Mmax to retain the following model:
@@ -135,12 +134,13 @@ Mmax <- lm(I(logit(chdrisk)) ~ (.)^2 - cursmoke:cigpday - bpmeds:prevhyp +
 
 ```
 
+We also add some quadratic terms for continuous variates in hope of having some additional predicitive power.
+
 ```{r echo=FALSE}
 
 load_calcs = TRUE
 # starting model for stepwise selection
 Mstart <- lm(I(logit(chdrisk)) ~ ., data = fhsd) 
-anyNA(coef(Mmax)) # check if there are any remaining NAs
 if(!load_calcs){
   #forward model selection
   system.time({
@@ -180,18 +180,19 @@ if(!load_calcs) {
 #Mback$call
 #beta.fwd = coef(Mfwd)
 #beta.back = coef(Mback)
+```
+
+Finally, we produce the following model using stepwise model selection:
+
+```{r echo=FALSE}
 beta.step = coef(Mstep)
+Mstep$call
 #identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.back)], names(beta.fwd))
 #identical(names(beta.fwd)[names(beta.fwd) %in% names(beta.step)], names(beta.fwd))
 #identical(names(beta.back)[names(beta.back) %in% names(beta.step)], names(beta.back))
 ```
 
-Finally, we produce the following model using stepwise model selection:
 
-```{r}
-# Stepwise model selection
-Mstep$call
-```
 
 \subsection{Manual Model Selection}
 
@@ -280,7 +281,7 @@ Analysis of the graphs reveals that both models have very similar residual distr
 
 Then to check our assumption of normality of residuals we plot the residuals on a QQPlot and a histogram:
 
-```{r echo=FALSE}
+```{r echo=FALSE,fig.width= 8,fig.height=4}
 
 # plot standardized residuals
 
