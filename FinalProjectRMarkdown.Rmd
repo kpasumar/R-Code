@@ -468,4 +468,10 @@ From our analysis, we make the following conclusions :
     
 3. We can observe from the model diagnostics of the chosen model that there might be a slight departure from the assumption of                      homoscedasticity. In fact, it seems as though the standard deviation decreases as we get into the region of people with high risk of             coronary heart disease. This might be due to the fact that we have relatively more variates that have a positive association with higher         CHD risk and also less people with high CHD risk, hence we have more predictive power when presented with a person with factors of high          CHD risk. However, for people with low CHD, it might be harder to predict their CHD risk due to more variation that arises from having a         lot more of people with relatively low CHD risk in the study. Therefore, our conclusions regarding factors that relate to high CHD risk          might be stronger than those that relate to lower CHD risks.
 
+4. From the box plot of cook's distance for the manual model, it can be seen that one specific individual has an unusually high value. The following command finds that outlying observation and the corresponding cook's distance.
 
+```{r}
+cook2[which.max(cook2)]
+```
+
+Since 0.78 is an unusually high cook's distance value, the 916th individual can be excluded from the analysis.
