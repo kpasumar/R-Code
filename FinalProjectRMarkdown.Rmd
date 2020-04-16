@@ -11,7 +11,8 @@ output:
 
 \section{Summary}
 
-
+The objective of this report is to come up with a suitable model that best predicts the risk score for CHD based on other variates available in the Framingham Heart Study dataset. [WRITE ABOUT STATISTICAL ANALYSIS]
+Stepwise automated model selection is used to create a regression model for the response variate logit(\texttt{chdrisk}) based on other covariates and their interactions. Then after conducting some F-tests, another model is manually constructed by removing some interactions from the stepwise model.Both the models are diagnosed and the latter is selected to have better predictive as well as explanatory power.
 
 
 \section{Descriptive Statistics}
@@ -196,7 +197,7 @@ Mstep$call
 
 \subsection{Manual Model Selection}
 
-The following table lists terms in the stepwise model that result in insignifance when F-test is perfomed by removing them solely from the stepwise model along with corresponding p-values in a sorted order.
+The following table lists terms in the stepwise model that result in insignifance when an F-test is perfomed by removing them solely from the model along with corresponding p-values in a sorted order.
 
 ```{r,echo=FALSE}
 library(stringr)                                  # For string operations
@@ -215,10 +216,10 @@ for(i in names.table){
 
 table <- as.data.frame(table)
 colnames(table) <- names.table           # Add appropriate column names to the table
-table <- sort(table,decreasing = TRUE)   # Arrange variates by decreasing significance
+table <- sort(table,decreasing = TRUE)   # Arrange variates by decreasing insignificance
 
-sig_values <- which(table >= 0.05)      # Significant p-values from the sorted table
-kable(table[,sig_values[1:9]],"latex", caption = "Variates/Interactions with significant p-values from F-test", 
+sig_values <- which(table >= 0.05)      # Insignificant p-values from the sorted table
+kable(table[,sig_values[1:9]],"latex", caption = "Variates/Interactions with insignificant p-values from F-test", 
       booktabs = T) %>%
 kable_styling(latex_options = c("striped", "hold_position","scale_down"))
 kable(table[,sig_values[10:17]],"latex",booktabs = T) %>%
@@ -232,7 +233,7 @@ Looking at the above table, removing highly insignificant continuous variate int
 anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday))$`Pr(>F)`[2]
 ```
 
-Assuming the insignificance threshold of 0.05, removing categorical/continuous variate interaction \texttt{bpmeds:prevstrk} esults in the following p-value.
+Assuming the insignificance threshold of 0.05, removing categorical/continuous variate interaction \texttt{bpmeds:prevstrk} results in the following p-value.
 
 ```{r}
 # Now remove insignificant interactions from categroical variates
@@ -331,7 +332,7 @@ boxplot(x = list(abs(hat1), abs(hat2)), names = Mnames,
         ylab = "Abs. Leverages", col = c("yellow", "orange"))
 ```
 
-Similarly, we have the following boxplot of cook's distances of both the models.
+Similarly, we have the following boxplot of cook's distances for both the models.
 
 ```{r,echo=FALSE}
 # Similarly compute and plot cook's distance for both the models
@@ -342,6 +343,8 @@ boxplot(x = list(abs(cook1), abs(cook2)), names = Mnames,
         ylab = "Cooks Distances", col = c("yellow", "orange"))
 
 ```
+
+From the first plot above, we see that leverage for most observations is far from the desired value of 1 in both the models. Whereas from the second plot, cook's distance for most of the observations is close to desired value 0. And finally, both the models have very similar values for leverages and cook's distances.
 
 \section{Model Selection}
 
