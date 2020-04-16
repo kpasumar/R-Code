@@ -35,9 +35,9 @@ kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
 
 First observation we make from the summary is that the median and average ages are around 60, which means the survey seems to have been done on a relatively old group of people. We also have a significantly higher number of females in the study, almost 30% more than the number of males. This might affect the nature of the data to be skewed towards behaviors and physical attributes associated with females.
 
-A further inspection of the expected coronary heart disease (CHD) risk against certain categorical variates, gives more insights.
+A further inspection of the mean coronary heart disease (CHD) risk against certain categorical variates, gives more insights.
 
-For instance, if we take a look at expected CHD risk against whether or not an individual has hypertension, we get the following result:
+For instance, if we take a look at mean CHD risk against whether or not an individual has hypertension, we get the following result:
 
 ```{r,echo=FALSE}
 by(fhsd$chdrisk, fhsd$prevhyp, summary)
@@ -475,3 +475,7 @@ cook2[which.max(cook2)]
 ```
 
 Since 0.78 is an unusually high cook's distance value, the 916th individual can be excluded from the analysis.
+
+5. This is an observational study, which means certain conclusions regarding causations can not be made. Therefore, suggesting any behavioural changes based on this report would not be justified because non of the conclusions we established are causal, e.g. we can not say that smoking less would result in a decreased risk of heart disease.
+
+6. Finally, we do observe some variates retained in the final model with high p-values, meaning that they might be insignificant. However, removing those variates does fail an F-test with 5% significance, therefore we can not say with confidence that they are insiginificant. This might be due to other variates being significant in the presence of those variates with high p-values.
