@@ -105,11 +105,9 @@ Mmax$call
 However, we end up getting NAs in the coefficients for two interactions namely: whether currently a cigrette smoker and number of cigarettes smoked each day, whether individual is on anti-hypertensive medication and whether the individual actually has hypertension.
 
 ```{r, eval=FALSE, include=FALSE}
-
 # find model coefficients which are NA
 beta.max <- coef(Mmax)
 names(beta.max)[is.na(beta.max)]
-
 ```
 
 If we investigate the relationship between these variables as shown below, we see that those who do not smoke have no cigarettes per day making these two respective columns linearly dependent.
@@ -477,3 +475,321 @@ Since 0.78 is an unusually high cook's distance value, the 916th individual can 
 5. This is an observational study, which means certain conclusions regarding causations can not be made. Therefore, suggesting any behavioural changes based on this report would not be justified because none of the conclusions we established are causal, e.g. we can not say that smoking less would result in a decreased risk of heart disease.
 
 6. Finally, we do observe some variates retained in the final model with high p-values, meaning that they might be insignificant. For example, casual serum glucose has a very high p-value of 0.37. However we know that this model is derived from the stepwise model which rules out all insignificant covariates. Hence, the calculated p-value(s) for the final model are incorrect displaying post-selection inference problem as described in the course notes.
+
+\newpage
+\section{Appendix}
+
+```{r,eval=FALSE,results='hide'}
+library(knitr)
+suppressWarnings(library(kableExtra))
+suppressWarnings(library(gtools))
+# Hide NA values from summary statistics which appear for categorical variates
+options(knitr.kable.NA = '') 
+fhsd <- read.csv('fhs.csv')
+# summary statistics on explanatory variables broken into two small tables
+kable(summary(fhsd[,1:9]), "latex", caption = "Summary Statistics", booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+kable(summary(fhsd[,10:18]), "latex", booktabs = T) %>%     # Table continued on another line
+kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+
+by(fhsd$chdrisk, fhsd$prevhyp, summary)
+
+by(fhsd$chdrisk, fhsd$prevstrk, summary)
+
+# pair plots for continuous variates
+pairs(~ chdrisk + totchol + age + 
+        sysbp + diabp + cigpday + 
+        bmi + heartrte + glucose + 
+        hdlc + ldlc, 
+      col = "blue",                                         # Change color
+      pch = 18,                                            # Change shape of points
+      cex = 0.4,
+      gap = 1,
+      main = "Pair Plots of Continuous Variates",
+      data = fhsd)
+
+# design matrix excluding intercept
+X <- model.matrix(lm(chdrisk ~ . -  1, data = fhsd))
+# remove linearly dependent column (sexMale = 1 - sexFemale)
+X <- X[,-1]
+# calculate vif
+vif <- diag(solve(cor(X)))
+kable(t(round(vif,3)),"latex",booktabs = T,caption = "VIFs of Variates") %>%
+kable_styling(latex_options = c("striped", "hold_position","scale_down"))
+
+# model with only intercept
+M0 <- lm(I(logit(chdrisk)) ~ 1, data = fhsd)
+M0$call
+# model with all interactions
+Mmax <- lm(I(logit(chdrisk)) ~ (.)^2, data = fhsd)
+Mmax$call
+
+# find model coefficients which are NA
+beta.max <- coef(Mmax)
+names(beta.max)[is.na(beta.max)]
+
+# find the problem with the NA coeffs
+kable(table(fhsd[c("cursmoke", "cigpday")]), "latex",
+      caption = "cursmoke against cigpday", booktabs = T) %>% 
+kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+kable(table(fhsd[c("bpmeds", "prevhyp")]), "latex", 
+      caption = "bpmeds against prevhyp", booktabs = T)  %>%    
+kable_styling(latex_options = c("striped", "hold_position"),font_size = 6)
+
+# remove the coeffs with the problem and add quadratic terms for the continuous variables
+Mmax <- lm(I(logit(chdrisk)) ~ (.)^2 - cursmoke:cigpday - bpmeds:prevhyp + 
+             I(totchol ^ 2) + I(sysbp ^ 2) + I(diabp ^ 2) 
+           + I(bmi ^ 2) + I(glucose ^ 2)
+           + I(hdlc ^ 2) + I(ldlc ^ 2), data = fhsd)
+Mmax$call
+
+load_calcs = TRUE
+# starting model for stepwise selection
+Mstart <- lm(I(logit(chdrisk)) ~ ., data = fhsd) 
+if(!load_calcs){
+  #stepwise model selection
+  system.time({
+    Mstep <- step(object = Mstart,
+                  scope = list(lower = M0, upper = Mmax),
+                  direction = "both", trace = FALSE)
+  })
+}
+# the caching/loading block
+if(!load_calcs) {
+  saveRDS(list(Mstep = Mstep), file = "models_automated.rds") 
+} else {
+  # just load the calculations
+  tmp <- readRDS("models_automated.rds")
+  Mstep <- tmp$Mstep
+  rm(tmp) # optionally remove tmp from workspace
+}
+
+beta.step <- coef(Mstep) # Store coefficients of the stepwise model
+Mstep$call
+
+suppressWarnings(library(stringr))                                  # For string operations
+table <- c()                                      # Initialize empty vector
+names.table <- names(beta.step)                   # Obtain variate names in stepwise model 
+names.table <- str_remove_all(names.table,"Yes")  # Remove "Yes" from interactions
+names.table <- str_remove_all(names.table,"Male") # Remove "Male" from interactions
+
+# Perform F-tests with Mstep by removing one variate at a time 
+for(i in names.table){
+  # Obtain model without variate i
+  mdl <- lm(as.formula(paste0("update(Mstep, . ~ . -", i,")")),data = fhsd)
+  test <- anova(Mstep,mdl)               # F-Test between Stepwise and reduced model
+  table <- cbind(table,test$`Pr(>F)`[2]) # Add corresponding p-value to the table
+}
+
+table <- as.data.frame(table)
+colnames(table) <- names.table           # Add appropriate column names to the table
+table <- sort(table,decreasing = TRUE)   # Arrange variates by decreasing insignificance
+
+sig_values <- which(table >= 0.05)      # Insignificant p-values from the sorted table
+kable(table[,sig_values[1:9]],"latex", 
+      caption = "Variates/Interactions with insignificant p-values from F-test", 
+      booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position","scale_down"))
+kable(table[,sig_values[10:17]],"latex",booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position","scale_down"))
+
+# Remove as many insignificant continuous variate interactions as possible
+anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday))$`Pr(>F)`[2]
+
+# Now remove insignificant interactions from categroical variates
+anova(Mstep, update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday- bpmeds:prevstrk))$`Pr(>F)`[2]
+
+# Thus we have the following manually constructed model
+Mmanual <- update(Mstep,. ~ . - cigpday:heartrte - diabp:cigpday - bpmeds:prevstrk)   
+Mmanual$call
+
+# First we analyze Mstep
+# get the hat values
+sigma.hat <- sigma(Mstep)
+h <- hatvalues(Mstep)
+
+# studentized residuals, on the standard deviation scale
+res.step <- resid(Mstep)/(sigma.hat * sqrt(1-h)) 
+cex <- .8 # controls the size of the points and labels
+plot(predict(Mstep), res.step, pch = 21, bg = "blue", cex = cex, cex.axis = cex, 
+     main = "StepWise Model",
+     xlab = "Predicted logit(CHD Risk)", ylab = "Studentized Residuals")
+abline(h = 0, lty = 1, col = "black") # add horizontal line at 0
+
+sigma.hat <- sigma(Mmanual)
+# Then we analyze Mdl_manual
+# get the hat values
+h <- hatvalues(Mmanual)
+res.manual <- resid(Mmanual)/(sigma.hat * sqrt(1-h)) # studentized residuals, but on the data scale
+cex <- .8 # controls the size of the points and labels
+plot(predict(Mmanual), res.manual, pch = 21, bg = "red", cex = cex, cex.axis = cex,
+     main = "Manually Constructed Model",
+     xlab = "Predicted logit(CHD Risk)", ylab = "Studentized Residuals")
+abline(h = 0, lty = 1, col = "black") # add horizontal line at 0
+```
+
+```{r, eval=FALSE,results = 'hide',fig.width= 8,fig.height=4}
+# plot standardized residuals
+cex <- .8
+par(mfrow = c(1,2),oma = c(0,0,2,0))
+# histogram
+hist(res.manual, breaks = 50, freq = FALSE, cex.axis = cex,
+     xlab = "Studentized Residual logit(CHD Risk)",main = "")
+
+curve(dnorm(x), col = "red", add = TRUE) # theoretical normal curve
+
+#qq-plot
+qqnorm(res.manual,pch = 16, cex = cex, cex.axis = cex,main = "")
+abline(a = 0, b = 1, col = "red") # add 45 degree line
+mtext(expression(bold("Manually Constructed Model")),outer = TRUE,cex = 1.5,at = c(0.5,-1))
+
+# plot standardized residuals
+sigma.hat <- sigma(Mstep)
+par(mfrow = c(1,2),oma = c(0,0,2,0))
+# histogram
+hist(res.step, breaks = 50, freq = FALSE, cex.axis = cex,
+     xlab = "Studentized Residual logit(CHD Risk)", main = "")
+
+curve(dnorm(x), col = "red", add = TRUE) # theoretical normal curve
+
+#qq-plot
+qqnorm(res.step, main = "", pch = 16, cex = cex, cex.axis = cex)
+abline(a = 0, b = 1, col = "red") # add 45 degree line
+mtext(expression(bold("StepWise Model")),outer = TRUE,cex = 1.5,at = c(0.5,-1))
+```
+
+```{r,eval=FALSE,results = 'hide',fig.width=6,fig.height=4}
+Mnames <- expression(M[Step], M[Manual])
+
+hat1 <- hatvalues(Mstep) # Leverages of stepwise model
+hat2 <- hatvalues(Mmanual)
+
+# Create a box plot of absolute leverages of both models
+boxplot(x = list(abs(hat1), abs(hat2)), names = Mnames, main = "Absolute Leverages",
+        ylab = "Abs. Leverages", col = c("yellow", "orange"))
+```
+
+```{r,eval=FALSE,results = 'hide',fig.width=6,fig.height=4}
+# Similarly compute and plot cook's distance for both the models
+cook1 <- cooks.distance(Mstep)
+cook2 <- cooks.distance(Mmanual)
+
+boxplot(x = list(abs(cook1), abs(cook2)), names = Mnames, main = "Cook's Distance",
+        ylab = "Cooks Distance", col = c("yellow", "orange"))
+
+library(statmod) # Load this package for using gauss.quad.prob() function
+
+#' Following function calculates the mean of logit-normal distribution
+#' 
+#' @param mu Mean of underlying normal distribution
+#' @param sigma Standard deviation of underlying normal distribution
+#' 
+#' @return A single number representing mean of the logit-normal distribution
+#' 
+#' @details The calculation of w's and g(x)'s is vectorized
+logitnorm_mean <- function(mu,sigma){
+  v = 1/(1+ exp(-mu))           # Value passed into both shape parameters
+  alpha_1 = 1/(sigma^2 * (1-v)) # Shape parameter 1
+  alpha_2 = 1/(v * sigma^2) # Shape parameter 2
+  # Calculate nodes and weights for Gaussian quadrature
+  gqp <- gauss.quad.prob(n = 10,dist = "beta",alpha = alpha_1,beta = alpha_2)
+  x <- gqp$nodes   # Extract the nodes into a vector
+  w <- gqp$weights # Similarly the weights
+  # Apply the function g (defined in the project description) onto the above x's
+  g <- dnorm(logit(x),mean = mu,sd = sigma,log = TRUE) - log(1-x) - 
+       dbeta(x,shape1 = alpha_1,shape2 = alpha_2,log = TRUE)
+  # Calculate and return the mean
+  answer <- sum(w*exp(g)) 
+  return(answer)
+}
+
+# Test the function
+mu <- c(0.7,3.2,-1.1)
+sigma <- c(0.8,0.1,2.3)
+# Returns results expected in the project desciption
+sapply(1:3, function(i) logitnorm_mean(mu[i],sigma[i]))
+
+load_calcs = TRUE
+
+M1 <- Mstep
+M2 <- Mmanual
+
+# number of cross-validation replications
+nreps <- 1e3
+
+ntot <- nrow(fhsd)   # total number of observations
+ntrain <- 1800       # for fitting MLE's, roughly 80% of total
+ntest <- ntot-ntrain # for out-of-sample prediction
+
+# storage space
+mspe1 <- rep(NA, nreps) # mspe for M1
+mspe2 <- rep(NA, nreps) # mspe for M2
+
+if (!load_calcs){
+system.time({
+  for(ii in 1:nreps) {
+    train.ind <- sample(ntot, ntrain) # training observations
+    
+    # Update the models for this training set
+    M1.cv <- update(M1, subset = train.ind)
+    M2.cv <- update(M2, subset = train.ind)
+    
+    # MLE of sigma
+    M1.sigma <- sqrt(sum(resid(M1.cv)^2)/ntrain) 
+    M2.sigma <- sqrt(sum(resid(M2.cv)^2)/ntrain)
+    
+    # predictions of logit(chdrisk) for test set
+    predictions.M1 <- predict(M1.cv,newdata = fhsd[-train.ind,])
+    predictions.M2 <- predict(M2.cv,newdata = fhsd[-train.ind,])
+    
+   # predictions of chdrisk for the test set
+   values.M1 <- sapply(predictions.M1, function(i) logitnorm_mean(i,M1.sigma))
+   values.M2 <- sapply(predictions.M2, function(i) logitnorm_mean(i,M2.sigma))
+    
+    M1.res <- fhsd$chdrisk[-train.ind] -   # test observations
+              values.M1                    # prediction using training data
+    M2.res <- fhsd$chdrisk[-train.ind] - values.M2
+    
+    # mspe for each model
+    mspe1[ii] <- mean(M1.res^2)
+    mspe2[ii] <- mean(M2.res^2)
+    
+  }
+})
+}
+
+# the caching/loading block
+if(!load_calcs) {
+  saveRDS(list(mspe1 = mspe1,mspe2 = mspe2), file = "cross_validation_automated.rds") 
+} else {
+  # just load the calculations
+  tmp <- readRDS("cross_validation_automated.rds")
+  mspe1 <- tmp$mspe1
+  mspe2 <- tmp$mspe2
+  rm(tmp) # optionally remove tmp from workspace
+}
+
+# compare Root MSPEs of both the models through boxplots
+boxplot(x = list(sqrt(mspe1), sqrt(mspe2)), names = Mnames,
+        main = "Root MSPE",
+        ylab = expression(sqrt(MSPE)),
+        col = c("yellow", "orange"))
+
+summ <- summary(Mmanual) # Obtain summary of manually constructed model
+
+# Function to create a table of parameters estimates, std.errors and p-values for 10 columns
+call_kable <- function(i){
+if(i != 1) caption = NULL
+else caption = "Summary of chosen manually constructed model"
+kable(t(round(summ$coefficients[i:(i+8),c(1,2,4)],4)), "latex", caption = caption, booktabs = T) %>%
+kable_styling(latex_options = c("striped", "hold_position","scale_down"))
+}
+
+call_kable(1)
+call_kable(10)
+call_kable(19)
+call_kable(28)
+call_kable(37)
+call_kable(46)
+call_kable(55)
+```
